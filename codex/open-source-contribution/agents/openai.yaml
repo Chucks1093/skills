@@ -1,0 +1,4 @@
+interface:
+  display_name: "Open Source Contribution"
+  short_description: "Issue-to-PR workflow for GitHub OSS contributions"
+  default_prompt: "Use $open-source-contribution to guide me from issue selection to a merged pull request."
