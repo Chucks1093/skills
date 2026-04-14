@@ -1,0 +1,4 @@
+interface:
+  display_name: "Reply AI Agent Challenge"
+  short_description: "Reply challenge rules and build guidance"
+  default_prompt: "Use $reply-ai-agent-challenge to check whether this design and submission plan comply with the Reply AI Agent Challenge rules."
