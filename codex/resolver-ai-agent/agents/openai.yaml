@@ -1,0 +1,4 @@
+interface:
+  display_name: "Resolver AI Agent"
+  short_description: "Resolve GitHub issues from Telegram jobs"
+  default_prompt: "Use $resolver-ai-agent to resolve this assigned GitHub issue inside the provided Resolver job workspace."
