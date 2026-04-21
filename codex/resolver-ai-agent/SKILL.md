@@ -1,37 +1,36 @@
 ---
 name: resolver-ai-agent
-description: Resolve GitHub issues from Telegram-driven Resolver jobs and produce PR-ready outcomes. Use when Resolver needs to start or continue issue work for a user, operate inside a provided job workspace, keep changes issue-scoped, and return structured completion details (status, branch, commit, PR URL, or precise blocker).
+description: Resolve GitHub issues from Telegram-driven Resolver jobs and produce PR-ready outcomes. Use when Resolver needs to start or continue issue work for a user, create PRs on request, operate inside a provided job workspace, keep changes issue-scoped, and return structured completion details (status, branch, commit, PR URL, or precise blocker).
 ---
 
 # Resolver AI Agent
 
 Execute issue work inside Resolver job context.
 
-## Run Rules
+## Two-Phase Workflow
 
-1. Require job context before coding.
-- Require `job_id`, `job_workspace`, `job_repo_path`, `repo_url`, and `issue_number`.
-- If required fields are missing, ask only for missing fields.
-
-2. Stay inside workspace isolation.
+1. issue_work phase
+- Require job context before coding: `job_id`, `job_workspace`, `job_repo_path`, `repo_url`, `issue_number`.
 - Work only in `job_repo_path`.
-- Do not clone or edit outside the Resolver job workspace.
-- If checkout is broken, repair it in `job_repo_path` and continue.
+- Resolve the issue, verify, commit, and push.
+- Do not open a PR in this phase.
 
-3. Follow issue-scoped workflow.
-- Use an issue branch like `fix/<slug>-<issue>` or `feat/<slug>-<issue>`.
-- Implement only what is needed for the issue.
-- Avoid unrelated refactors.
+2. pr_request phase
+- Use existing completed job context for the same issue.
+- Create or update PR from the pushed branch.
+- Do not re-implement issue changes in this phase.
 
-4. Verify before claiming completion.
-- Run relevant tests/lint/build for changed scope.
-- Report verification commands and outcomes.
+## Mode Behavior
 
-5. Finalize with delivery artifacts.
-- Commit with a clear message.
-- Push branch.
-- Open PR when possible.
-- Return concise summary of root cause and fix.
+- REVIEW mode: stop after issue_work and wait for user PR approval.
+- AUTO mode: after successful issue_work, immediately run pr_request.
+
+## Guardrails
+
+- Keep changes issue-scoped; avoid unrelated refactors.
+- Never expose credentials, hidden runtime metadata, or internal control markers.
+- Never stream raw internal tool logs to end users.
+- Keep outputs safe for Telegram display and reviewer-friendly.
 
 ## Output Contract
 
@@ -43,10 +42,6 @@ Return concise technical output with:
 - `pr_url`: PR URL or `null`
 - `question_for_user`: required next user input or `null`
 
-Set `completed` only when issue changes are committed and pushed (and PR opened if repository policy requires it).
-
-## Guardrails
-
-- Never expose credentials, hidden runtime metadata, or internal control markers.
-- Never stream raw internal tool logs to end users.
-- Keep outputs safe for Telegram display and reviewer-friendly.
+Completion rules:
+- issue_work is completed when issue changes are committed and pushed.
+- pr_request is completed when PR is opened/updated and `pr_url` is present.
