@@ -1,13 +1,15 @@
 ---
 name: resolver-ai-agent
-description: Resolver issue-to-PR workflow for Telegram-driven GitHub tasks. Use when Resolver needs to fix an issue in a repository workspace, continue an existing issue job, or create a PR from completed work. Includes open-source contribution hygiene (branching, testing, commit quality, PR quality, and review updates) with Resolver two-phase behavior (issue_work then pr_request).
+description: End-to-end Resolver issue-to-PR workflow for Telegram-driven GitHub tasks. Use when Resolver needs to solve an issue in a repository workspace, continue an existing job, create a PR from completed work, follow open-source contribution best practices (forking, remotes, branch hygiene, tests, commits, PR quality, review updates), and return structured job outcomes.
 ---
 
 # Resolver AI Agent
 
-Execute repository work for Resolver with strict issue scope and production-safe Git hygiene.
+Use this skill to execute issue-to-PR workflows with open-source contribution quality, adapted to Resolver runtime and two-phase behavior.
 
-## Required Runtime Context
+Keep changes actionable, issue-scoped, and repository-specific.
+
+## Resolver Runtime Contract
 
 Always require:
 - `job_id`
@@ -16,86 +18,110 @@ Always require:
 - `repo_url`
 - `issue_number`
 
-If required context is missing, ask only for missing fields.
+If required context is missing, ask only for missing values.
 
-## Workspace and Safety Rules
+Hard constraints:
+- Work only inside `job_repo_path`.
+- Do not clone/edit outside Resolver job workspace.
+- Do not expose internal runtime metadata, credentials, hidden markers, or raw tool logs.
 
-- Operate only inside `job_repo_path`.
-- Do not clone, edit, or run Git operations outside Resolver job workspace.
-- If repository state is broken, repair it inside `job_repo_path` before coding.
-- Never expose internal runtime metadata, credentials, hidden control markers, or raw tool logs.
-
-## Resolver Two-Phase Workflow
+## Two-Phase Resolver Behavior
 
 ### Phase A: `issue_work`
 
-Goal: resolve the issue and push branch changes.
+Objective: resolve the issue and push branch changes.
 
-1. Validate issue target
-- Confirm repository and issue match user intent.
-- Map issue requirements to explicit implementation tasks.
+- Create/repair repo state in `job_repo_path`.
+- Implement issue-scoped changes.
+- Verify with tests/lint/build.
+- Commit and push branch.
+- Do not open PR in this phase.
 
-2. Prepare repository state
-- Ensure correct repository checkout in `job_repo_path`.
-- Sync base branch and create issue-scoped branch from updated base.
-- Branch naming:
-  - `fix/<slug>-<issue>` for bug fixes
-  - `feat/<slug>-<issue>` for feature work
-  - `docs/<slug>-<issue>` for docs-only work
-  - `refactor/<slug>-<issue>` for scoped refactor requested by issue
-
-3. Implement issue-scoped changes only
-- Make minimal, reviewable edits directly tied to issue requirements.
-- Avoid unrelated refactors or cleanup.
-
-4. Verify
-- Run relevant lint/tests/build commands for changed scope.
-- Record concrete verification outcomes.
-
-5. Commit and push
-- Commit with clear semantic message.
-- Push branch to remote.
-
-Hard rule for Phase A:
-- Do not open a PR in `issue_work`.
-
-Completion for Phase A:
-- Completed only when changes are committed and pushed.
+Completion rule:
+- `issue_work` is completed only when changes are committed and pushed.
 
 ### Phase B: `pr_request`
 
-Goal: create/update PR from completed branch.
+Objective: create/update PR from already pushed work.
 
-1. Use existing completed job context
-- Reuse job branch and commit information.
-- Do not re-implement code in this phase.
+- Reuse same job/repo/branch context.
+- Open or update PR.
+- Include high-quality PR description and issue linkage.
+- Do not re-implement issue code changes in this phase.
 
-2. Open or update PR
-- Create PR against the correct target branch.
-- Include high-quality PR description:
-  - issue reference (`Closes #<issue>` when applicable)
-  - concise summary of changes
-  - verification/test evidence
-
-Completion for Phase B:
-- Completed only when PR is opened/updated and `pr_url` exists.
+Completion rule:
+- `pr_request` is completed only when `pr_url` exists.
 
 ## Mode Behavior
 
 - `REVIEW` mode:
-  - Run Phase A only.
-  - Return completion output and wait for user approval before Phase B.
+  - Run `issue_work` only.
+  - Return completion output and wait for explicit user PR approval.
 
 - `AUTO` mode:
-  - Run Phase A.
-  - If Phase A completed, immediately run Phase B.
+  - Run `issue_work`.
+  - If completed, immediately run `pr_request`.
 
-## Contribution Hygiene Standards
+## Open-Source Contribution Workflow (Full)
 
-- Keep commits and PR scope aligned to issue.
-- Use deterministic commands and reproducible verification.
-- If blocked (permissions, missing secrets, unclear requirements), return `needs_input` with one precise question.
-- If user stops work, return `stopped`.
+1. Confirm repository context.
+- Identify original repository URL, issue number, target branch, and constraints.
+- Ask only for missing values needed to proceed.
+
+2. Prepare repository and remotes.
+- Fork upstream when required by repo contribution policy.
+- Clone contributor fork in `job_repo_path`.
+- Ensure remotes contract:
+  - `origin` -> contributor fork (push target)
+  - `upstream` -> original repository (sync source)
+
+3. Create issue-scoped branch from updated base.
+- Update base branch first (usually `main`).
+- Branch naming:
+  - `feat/<slug>-<issue>`
+  - `fix/<slug>-<issue>`
+  - `refactor/<slug>-<issue>`
+  - `docs/<slug>-<issue>`
+
+4. Implement only required changes.
+- Map issue requirements to explicit code changes.
+- Avoid unrelated refactors.
+- Keep diff minimal and reviewable.
+
+5. Verify changes.
+- Run relevant lint/tests/build (targeted where possible).
+- Record concrete verification evidence.
+
+6. Commit with clear semantics.
+- Use clear commit subject and body.
+- Keep commit message specific to behavior and verification.
+- Use conventional type when repository expects it.
+
+7. Push branch.
+- Push to `origin` branch.
+- Ensure pushed branch matches issue scope.
+
+8. Open pull request (`pr_request` phase).
+- Create PR from contributor branch to upstream target branch.
+- Use quality PR content:
+  - `Closes #<issue-number>` when appropriate
+  - `Changes` section
+  - `Testing` section
+  - optional `Notes`
+
+9. Handle review feedback.
+- Apply requested updates on same branch.
+- Re-test.
+- Push follow-up commits.
+
+## Common Fixes
+
+- Permission denied on push:
+  - Re-point `origin` to contributor fork.
+- PR not linked to issue:
+  - Add `Closes #<issue-number>` at top of PR description.
+- Merge conflicts:
+  - Fetch upstream, merge/rebase target branch, resolve, test, push.
 
 ## Output Contract
 
@@ -110,3 +136,10 @@ Return concise technical output with:
 Status rules:
 - `issue_work`: completed only when pushed.
 - `pr_request`: completed only when PR URL is present.
+- `needs_input`: use when blocked by missing access/clarification/credentials.
+- `stopped`: use only when user explicitly stops work.
+
+## Reference
+
+For full command examples, troubleshooting details, and checklist, read:
+- `references/contribution-guide.md`
