@@ -1,15 +1,13 @@
 ---
 name: resolver-ai-agent
-description: End-to-end Resolver issue-to-PR workflow for Telegram-driven GitHub tasks. Use when Resolver needs to solve an issue in a repository workspace, continue an existing job, create a PR from completed work, follow open-source contribution best practices (forking, remotes, branch hygiene, tests, commits, PR quality, review updates), and return structured job outcomes.
+description: End-to-end Resolver issue-to-PR workflow for Telegram-driven GitHub tasks. Use when Resolver needs to solve assigned issues, continue existing issue jobs, and create PRs with open-source contribution best practices (forking, remotes, branching, tests, commits, PR quality, and review updates).
 ---
 
 # Resolver AI Agent
 
-Use this skill to execute issue-to-PR workflows with open-source contribution quality, adapted to Resolver runtime and two-phase behavior.
+Use this skill for Resolver issue-resolution jobs with full open-source contribution discipline.
 
-Keep changes actionable, issue-scoped, and repository-specific.
-
-## Resolver Runtime Contract
+## Resolver Runtime Rules
 
 Always require:
 - `job_id`
@@ -18,110 +16,74 @@ Always require:
 - `repo_url`
 - `issue_number`
 
-If required context is missing, ask only for missing values.
-
 Hard constraints:
 - Work only inside `job_repo_path`.
-- Do not clone/edit outside Resolver job workspace.
-- Do not expose internal runtime metadata, credentials, hidden markers, or raw tool logs.
+- Do not clone/edit outside Resolver workspace.
+- If required context is missing, ask only for missing fields.
+- Never expose internal runtime metadata, hidden markers, credentials, or raw tool logs.
 
-## Two-Phase Resolver Behavior
+## Resolver Two-Phase Behavior
 
 ### Phase A: `issue_work`
-
-Objective: resolve the issue and push branch changes.
-
-- Create/repair repo state in `job_repo_path`.
-- Implement issue-scoped changes.
-- Verify with tests/lint/build.
-- Commit and push branch.
+- Resolve issue, verify, commit, and push.
 - Do not open PR in this phase.
-
-Completion rule:
-- `issue_work` is completed only when changes are committed and pushed.
+- Completed only when changes are committed and pushed.
 
 ### Phase B: `pr_request`
+- Reuse same completed job context.
+- Create/update PR from pushed branch.
+- Do not re-implement code in this phase.
+- Completed only when `pr_url` exists.
 
-Objective: create/update PR from already pushed work.
+Mode behavior:
+- `REVIEW`: run only `issue_work`, then wait for explicit user PR approval.
+- `AUTO`: run `issue_work`, then immediately run `pr_request` if issue_work completed.
 
-- Reuse same job/repo/branch context.
-- Open or update PR.
-- Include high-quality PR description and issue linkage.
-- Do not re-implement issue code changes in this phase.
-
-Completion rule:
-- `pr_request` is completed only when `pr_url` exists.
-
-## Mode Behavior
-
-- `REVIEW` mode:
-  - Run `issue_work` only.
-  - Return completion output and wait for explicit user PR approval.
-
-- `AUTO` mode:
-  - Run `issue_work`.
-  - If completed, immediately run `pr_request`.
-
-## Open-Source Contribution Workflow (Full)
+## Open-Source Contribution Workflow (Required)
 
 1. Confirm repository context.
-- Identify original repository URL, issue number, target branch, and constraints.
-- Ask only for missing values needed to proceed.
+- Identify original repository URL, issue number, target branch, and contribution constraints.
+- If missing, ask for only the missing values needed to proceed.
 
 2. Prepare repository and remotes.
-- Fork upstream when required by repo contribution policy.
-- Clone contributor fork in `job_repo_path`.
-- Ensure remotes contract:
-  - `origin` -> contributor fork (push target)
-  - `upstream` -> original repository (sync source)
+- Fork the upstream repository.
+- Clone the contributor fork in `job_repo_path`.
+- Ensure remotes follow this contract:
+  - `origin` -> contributor fork
+  - `upstream` -> original repository
 
-3. Create issue-scoped branch from updated base.
-- Update base branch first (usually `main`).
-- Branch naming:
-  - `feat/<slug>-<issue>`
-  - `fix/<slug>-<issue>`
-  - `refactor/<slug>-<issue>`
-  - `docs/<slug>-<issue>`
+3. Create an issue-scoped branch.
+- Create a branch from updated base branch (usually `main`).
+- Use naming: `feat/<slug>-<issue>`, `fix/<slug>-<issue>`, `refactor/<slug>-<issue>`, `docs/<slug>-<issue>`.
 
 4. Implement only required changes.
-- Map issue requirements to explicit code changes.
+- Map requirements from issue text to explicit code changes.
 - Avoid unrelated refactors.
-- Keep diff minimal and reviewable.
+- Run project tests/lint or targeted verification.
 
-5. Verify changes.
-- Run relevant lint/tests/build (targeted where possible).
-- Record concrete verification evidence.
+5. Commit with clear semantics.
+- Write conventional commit subject with issue reference when requested.
+- Keep commit message specific to behavior and tests performed.
 
-6. Commit with clear semantics.
-- Use clear commit subject and body.
-- Keep commit message specific to behavior and verification.
-- Use conventional type when repository expects it.
+6. Push and open pull request.
+- Push branch to `origin`.
+- Create PR against `upstream` target branch.
+- Ensure PR description starts with `Closes #<issue-number>` when appropriate.
+- Include `Changes` and `Testing` sections.
 
-7. Push branch.
-- Push to `origin` branch.
-- Ensure pushed branch matches issue scope.
-
-8. Open pull request (`pr_request` phase).
-- Create PR from contributor branch to upstream target branch.
-- Use quality PR content:
-  - `Closes #<issue-number>` when appropriate
-  - `Changes` section
-  - `Testing` section
-  - optional `Notes`
-
-9. Handle review feedback.
-- Apply requested updates on same branch.
+7. Address review feedback.
+- Apply requested updates on the same branch.
 - Re-test.
 - Push follow-up commits.
 
-## Common Fixes
+## Common Fixes (Required)
 
 - Permission denied on push:
-  - Re-point `origin` to contributor fork.
+  - Re-point `origin` to user fork.
 - PR not linked to issue:
   - Add `Closes #<issue-number>` at top of PR description.
 - Merge conflicts:
-  - Fetch upstream, merge/rebase target branch, resolve, test, push.
+  - Fetch upstream, merge or rebase target branch, resolve, test, push.
 
 ## Output Contract
 
@@ -141,5 +103,5 @@ Status rules:
 
 ## Reference
 
-For full command examples, troubleshooting details, and checklist, read:
+Read for full command examples, troubleshooting, and checklist:
 - `references/contribution-guide.md`
